@@ -10,15 +10,16 @@ import json
 class QsbkPipeline(object):
 
     def __init__(self):
-        self.f = open("data.json", "w")
+        self.f = open("data.json", "w", encoding="utf-8")
 
-    def start_spider(self):
+    def open_spider(self, spider):
         print("爬虫已爬取到数据，开始保存")
 
-    def close_spider(self):
+    def close_spider(self, spider):
         print("数据保存成功")
         self.f.close()
 
     def process_item(self, item, spider):
-        item = json.dumps(dict(item), ensure_ascii=False)
-        self.f.write(item + "\r\n")
+        data = json.dumps(dict(item), ensure_ascii=False)
+        self.f.write(data + "\r\n")
+        return item

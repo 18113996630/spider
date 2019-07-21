@@ -9,12 +9,13 @@ class QsbkSpiderSpider(scrapy.Spider):
     start_urls = ['https://www.qiushibaike.com/text/']
 
     def parse(self, response):
-        print("=" * 20)
         divs = response.xpath("//div[@id='content-left']/div")
         for div in divs:
-            author = div.xpath(".//h2/text()").get().strip()
+            item = QsbkItem()
+            item['author'] = author = div.xpath(".//h2/text()").get().strip()
             content = div.xpath(".//div[@class='content']//text()").getall()
-            content = "".join(content).strip()
+            item['content'] = content = "".join(content).strip()
             number = div.xpath(".//a[@class='qiushi_comments']//text()").getall()
-            number = "".join(number).strip()
-            yield QsbkItem(author, content, number)
+            item['number'] = number = "".join(number).strip()
+            # item = {"author":author, "content":content, "number":number}
+            yield item

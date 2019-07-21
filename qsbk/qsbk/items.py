@@ -9,6 +9,7 @@ import scrapy
 
 
 class QsbkItem(scrapy.Item):
-    author = scrapy.Field
-    content = scrapy.Field
-    number = scrapy.Field
+    author = scrapy.Field()
+    content = scrapy.Field()
+    number = scrapy.Field()
+    pass
