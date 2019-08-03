@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import scrapy
+import json
 
 
 class AgentSpiderSpider(scrapy.Spider):
@@ -8,4 +9,6 @@ class AgentSpiderSpider(scrapy.Spider):
     start_urls = ['http://httpbin.org/user-agent']
 
     def parse(self, response):
-        print(response.text())
+        print('='*50)
+        print(json.loads(response.text)['user-agent'])
+        # yield scrapy.Request(self.start_urls[0], dont_filter=True)
