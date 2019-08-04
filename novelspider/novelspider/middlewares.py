@@ -108,5 +108,6 @@ ua = UserAgent()
 
 
 class UserDefinedUserAgent(object):
+
     def process_request(self, request, spider):
         request.headers['User-Agent'] = ua.random
