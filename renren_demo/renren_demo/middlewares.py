@@ -6,10 +6,9 @@
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
-import random
 
 
-class UseragentSpiderMiddleware(object):
+class RenrenDemoSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the spider middleware does not modify the
     # passed objects.
@@ -57,7 +56,7 @@ class UseragentSpiderMiddleware(object):
         spider.logger.info('Spider opened: %s' % spider.name)
 
 
-class UseragentDownloaderMiddleware(object):
+class RenrenDemoDownloaderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the downloader middleware does not modify the
     # passed objects.
@@ -102,15 +101,3 @@ class UseragentDownloaderMiddleware(object):
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
-
-
-class UserDefinedUseragentDownloaderMiddleware(object):
-    Agents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36',
-    ]
-
-    def __init__(self):
-        self.user_agent = random.choice(self.Agents)
-
-    def process_request(self, request, spider):
-        request.headers['User-Agent'] = self.user_agent

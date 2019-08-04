@@ -19,7 +19,9 @@ class QsbkSpiderSpider(scrapy.Spider):
             number = div.xpath(".//a[@class='qiushi_comments']//text()").getall()
             item['number'] = number = "".join(number).strip()
             yield item
-        next_url = response.xpath("//ul[@class='pagination']/li[last()]/@href").get()
+        next_url = response.xpath("//ul[@class='pagination']/li[last()]/a/@href").get()
+        self.log("开始请求下一页数据")
         if not next_url:
             return
-        scrapy.Request(next_url, callback=self.parse)
+        else:
+            yield scrapy.Request(self.base_domain+next_url, callback=self.parse)
