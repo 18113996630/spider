@@ -26,13 +26,13 @@ ROBOTSTXT_OBEY = False
 # Configure a delay for requests for the same website (default: 0)
 # See https://doc.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-DOWNLOAD_DELAY = 1
+DOWNLOAD_DELAY = 5
 # The download delay setting will honor only one of:
 # CONCURRENT_REQUESTS_PER_DOMAIN = 16
 # CONCURRENT_REQUESTS_PER_IP = 16
 
 # Disable cookies (enabled by default)
-# COOKIES_ENABLED = False
+COOKIES_ENABLED = False
 
 # Disable Telnet Console (enabled by default)
 # TELNETCONSOLE_ENABLED = False
@@ -40,8 +40,11 @@ DOWNLOAD_DELAY = 1
 # Override the default request headers:
 DEFAULT_REQUEST_HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36'
+    'Accept-Language': 'zh-CN,zh;q=0.9',
+    'accept-encoding': 'gzip, deflate, br',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36',
+    'cookie': 'global_cookie=ow9bwutbn6hmrj85etse08v0r30jyx1s0v4; Integrateactivity=notincludemc; __utmc=147393320; new_search_uid=cee19dbe0291ecbc9d8fc576a21adf7c; searchConN=1_1564928264_1114%5B%3A%7C%40%7C%3A%5Df33f13a9c2017103eed9a2f8c5b3de05; passport=username=&password=&isvalid=1&validation=; Captcha=61766C416856346551706E7A5954527A69716950474C4F6363346F4A4B2F717676684E654431394E4D31376B706E6346332F7142646E314A6576624337774D702F64422F75375A59346A593D',
+    'x-requested-with': 'XMLHttpRequest',
 }
 
 # Enable or disable spider middlewares
@@ -52,9 +55,9 @@ DEFAULT_REQUEST_HEADERS = {
 
 # Enable or disable downloader middlewares
 # See https://doc.scrapy.org/en/latest/topics/downloader-middleware.html
-# DOWNLOADER_MIDDLEWARES = {
-#    'fangtianxia_spider.middlewares.FangtianxiaSpiderDownloaderMiddleware': 543,
-# }
+DOWNLOADER_MIDDLEWARES = {
+   'fangtianxia_spider.middlewares.UserAgentMiddleWres': 543,
+}
 
 # Enable or disable extensions
 # See https://doc.scrapy.org/en/latest/topics/extensions.html
@@ -64,9 +67,10 @@ DEFAULT_REQUEST_HEADERS = {
 
 # Configure item pipelines
 # See https://doc.scrapy.org/en/latest/topics/item-pipeline.html
-# ITEM_PIPELINES = {
-#    'fangtianxia_spider.pipelines.FangtianxiaSpiderPipeline': 300,
-# }
+ITEM_PIPELINES = {
+   'fangtianxia_spider.pipelines.MysqlPipeline': 300,
+   # 'fangtianxia_spider.pipelines.KafkaPipeline': 300,
+}
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://doc.scrapy.org/en/latest/topics/autothrottle.html
@@ -88,3 +92,8 @@ DEFAULT_REQUEST_HEADERS = {
 # HTTPCACHE_DIR = 'httpcache'
 # HTTPCACHE_IGNORE_HTTP_CODES = []
 # HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
+
+# 禁止重定向
+REDIRECT_ENALBED = False
+
+HTTPERROR_ALLOWED_CODES = [301]
