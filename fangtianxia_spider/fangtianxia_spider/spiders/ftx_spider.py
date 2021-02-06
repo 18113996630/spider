@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-import time
+
+import re
 
 import scrapy
-import re
+
 from fangtianxia_spider.items import NewHouseItem, StockHouseItem
 
 
@@ -40,8 +41,6 @@ class FtxSpiderSpider(scrapy.Spider):
                                      meta={
                                          "info": (province, city_name, stock_house_url),
                                      })
-                break
-            break
 
     def parse_new_house(self, response):
         """
