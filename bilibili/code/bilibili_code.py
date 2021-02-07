@@ -38,7 +38,7 @@ def login():
         print("cookie获取成功")
 
 
-def get_video_info(url):
+def get_request_data(url):
     response = requests.get(url, cookies=cookies_dict)
     if response.status_code == 200:
         content = response.content.decode('utf-8')
@@ -46,20 +46,18 @@ def get_video_info(url):
     return None
 
 
-def format_time(ts, format='%Y-%m-%d %H:%M:%S'):
+def format_time(ts, style='%Y-%m-%d %H:%M:%S'):
     """
     格式化时间
     :param ts: 待格式化的时间
-    :param format: 时间格式
+    :param style: 时间格式
     :return: 时间字符串
     """
-    return time.strftime(format, time.localtime(ts))
+    return time.strftime(style, time.localtime(ts))
 
 
 def parse_video_data(content: str):
-    # 替换换行字符
-    content = content.replace('\n', ';')
-    full_data = json.loads(content)
+    full_data = normalize_content(content)
     # 总视频数量
     total_count = jsonpath.jsonpath(full_data, '$.data.page.count')[0]
     # 每个视频的信息
@@ -97,15 +95,62 @@ def parse_video_data(content: str):
     data['视频长度'] = length_list
     data['弹幕数量'] = danmu_list
     data['视频地址'] = url_list
+    write_csv_without_header(data, 'data.csv')
+
+
+def parse_play_info(d: str):
+    """
+    获取播放量等信息
+    """
+    d = normalize_content(d)
+    r = dict()
+    r['video_view'] = jsonpath.jsonpath(d, '$.data.archive.view')[0]
+    r['article_view'] = jsonpath.jsonpath(d, '$.data.article.view')[0]
+    r['likes'] = jsonpath.jsonpath(d, '$.data.likes')[0]
+    return r
+
+
+def parse_fans_info(main_info: str):
+    """
+    获取粉丝信息
+    """
+    d = normalize_content(main_info)
+    r = dict()
+    r['fans'] = jsonpath.jsonpath(d, '$.data.follower')[0]
+    return r
+
+
+def parse_main_info(main_info: str):
+    """
+    处理个人相关的数据
+    """
+    json_data = normalize_content(main_info)
+    mid = jsonpath.jsonpath(json_data, '$.data.mid')
+    name = jsonpath.jsonpath(json_data, '$.data.name')
+    live_room_url = jsonpath.jsonpath(json_data, '$.data.live_room.url')
+
+    info = dict()
+    info['url'] = 'https://space.bilibili.com/' + str(mid[0])
+    info['id'] = mid
+    info['name'] = name
+    info['live_room_url'] = live_room_url
+    return info
+
+
+def normalize_content(content: str):
+    # 替换换行字符
+    content = content.replace('\n', ';')
+    return json.loads(content)
+
+
+def write_csv_without_header(data: dict, file_name):
     df = pd.DataFrame(data)
-    df.to_csv("data.csv")
+    df.to_csv(file_name, mode='a', header=False)
 
 
-def get_data_by_jsonpath(content: json, path: str):
-    """
-    根据json path获取数据
-    """
-    return jsonpath.jsonpath(content, path)[0]
+def write_csv_with_header(data, file_name):
+    df = pd.DataFrame(data)
+    df.to_csv(file_name, mode='a', header=True)
 
 
 # login()
@@ -115,5 +160,6 @@ def get_data_by_jsonpath(content: json, path: str):
 # content = get_video_info(detail_url)
 # print(content)
 # parse_video_data(content)
-print(time.time())
-print(format_time(17209811378174730223))
+content = '{"code":0,"message":"0","ttl":1,"data":{"mid":314076440,"name":"鱼C-小甲鱼","sex":"男","face":"http://i0.hdslb.com/bfs/face/4543ce186f9b74e60a85e66c010187bd3be3d0e1.jpg","sign":"让自学编程变得快乐有趣 ｡◕‿◕｡   ","rank":10000,"level":6,"jointime":0,"moral":0,"silence":0,"birthday":"05-20","coins":0,"fans_badge":true,"official":{"role":1,"title":"bilibili 知名科普UP主","desc":"","type":0},"vip":{"type":2,"status":1,"theme_type":0,"label":{"path":"","text":"年度大会员","label_theme":"annual_vip"},"avatar_subscript":1,"nickname_color":"#FB7299"},"pendant":{"pid":1141,"name":"如果历史是一群喵","image":"http://i2.hdslb.com/bfs/garb/item/cd3e9a6fa18db9ebdc128b0fef64cb32c5aab854.png","expire":0,"image_enhance":"http://i2.hdslb.com/bfs/garb/item/cd3e9a6fa18db9ebdc128b0fef64cb32c5aab854.png","image_enhance_frame":""},"nameplate":{"nid":1,"name":"黄金殿堂","image":"http://i2.hdslb.com/bfs/face/82896ff40fcb4e7c7259cb98056975830cb55695.png","image_small":"http://i1.hdslb.com/bfs/face/627e342851dfda6fe7380c2fa0cbd7fae2e61533.png","level":"稀有勋章","condition":"单个自制视频总播放数\u003e=100万"},"is_followed":false,"top_photo":"http://i2.hdslb.com/bfs/space/ca68c9c4c505d0fcb29d3377be57541ede5d1256.png","theme":{},"sys_notice":{},"live_room":{"roomStatus":1,"liveStatus":0,"url":"https://live.bilibili.com/10450003","title":"鱼C-小甲鱼的投稿视频","cover":"","online":28,"roomid":10450003,"roundStatus":1,"broadcast_type":0}}}'
+data = parse_main_info(content)
+write_csv_with_header(data, 'main.csv')
