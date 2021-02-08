@@ -2,19 +2,43 @@
 import json
 import os
 import time
+import random
+
 import pandas as pd
 
 import requests
 import jsonpath
+import pymysql.cursors
 from selenium import webdriver
+from fake_useragent import UserAgent
 
 cookie_file_name = 'bilibili_cookies.json'
+video_file_name = 'video.csv'
+up_file_name = 'up.csv'
+
 cookies_dict = dict()
 zhuye_url = 'https://api.bilibili.com/x/space/acc/info?jsonp=jsonp&mid='
 fensi_url = 'https://api.bilibili.com/x/relation/stat?jsonp=jsonp&vmid='
 bofang_url = 'https://api.bilibili.com/x/space/upstat?jsonp=jsonp&mid='
 video_list_url = 'https://api.bilibili.com/x/space/arc/search?ps=30&tid=0&pn=1&keyword=&order=stow&jsonp=jsonp&mid='
 tag_url = 'https://api.bilibili.com/x/web-interface/view/detail/tag?aid='
+comment_url = 'https://api.bilibili.com/x/v2/reply?jsonp=jsonp&pn=1&type=1&oid='
+
+connection = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='123456', db='bilibili',
+                             charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor)
+cursor = connection.cursor()
+
+
+def build_sql(table_name: str, item: dict):
+    ls = [(k, v) for k, v in item.items() if v is not None]
+    sql = 'INSERT INTO %s (' % table_name + ','.join([i[0] for i in ls]) + ') VALUES (' + ','.join(
+        repr(i[1]) for i in ls) + ');'
+    return sql
+
+
+def save_data(sql: str):
+    cursor.execute(sql)
+    connection.commit()
 
 
 def login():
@@ -23,7 +47,7 @@ def login():
     :return:
     """
     if not os.path.exists(cookie_file_name):
-        driver = webdriver.Chrome(executable_path=r'E:\chrome\chromedriver.exe')
+        driver = webdriver.Chrome(executable_path=r'D:\chrome\chromedriver.exe')
         # 窗口最大化
         driver.maximize_window()
         driver.get("https://www.bilibili.com/")
@@ -34,6 +58,7 @@ def login():
         with open(cookie_file_name, 'w') as f:
             f.write(json_cookies)
             print("cookie写入成功")
+        driver.close()
     else:
         print("开始从cookie文件获取cookie")
         with open(cookie_file_name, 'r', encoding='utf-8') as f:
@@ -44,11 +69,19 @@ def login():
 
 
 def get_request_data(url):
-    response = requests.get(url, cookies=cookies_dict)
-    if response.status_code == 200:
-        content = response.content.decode('utf-8')
-        return content
-    return None
+    if '&_=' not in url:
+        url += '&_=' + str(int(time.time() * 1000))
+    header = {
+        'user-agent': UserAgent().random
+    }
+    response = requests.get(url, cookies=cookies_dict, headers=header)
+    while response.status_code != 200:
+        get_request_data(url)
+        time.sleep(random.randint(1, 10) / 10)
+        if response.status_code == 200:
+            return response.content.decode('utf-8')
+    content = response.content.decode('utf-8')
+    return content
 
 
 def format_time(ts, style='%Y-%m-%d %H:%M:%S'):
@@ -61,94 +94,81 @@ def format_time(ts, style='%Y-%m-%d %H:%M:%S'):
     return time.strftime(style, time.localtime(ts))
 
 
-def parse_video_data(video_list: str):
-    full_data = normalize_content(get_request_data(video_list))
+def parse_video_data(video_url_inner: str, main_dic: dict):
+    full_data = normalize_content(get_request_data(video_list_url + video_url_inner))
     # 总视频数量
     total_count = jsonpath.jsonpath(full_data, '$.data.page.count')[0]
-    # 每个视频的信息
-    title_list = list()
-    play_count_list = list()
-    comment_count_list = list()
-    dt_list = list()
-    length_list = list()
-    danmu_list = list()
-    url_list = list()
-    tag_list = list()
+    main_dic['spsl'] = total_count
+    up_sql = build_sql('up_info', main_dic)
+    save_data(up_sql)
+
+    # write_csv(main_dic, up_file_name)
+    print('个人信息写入成功')
     cnt = 1
     for item in full_data['data']['list']['vlist']:
+        single_video = dict()
         print('处理视频数量：', cnt)
+        time.sleep(random.randint(1, 10) / 10)
         cnt += 1
-        title = item['title']
-        play_count = item['play']
-        comment_count = item['comment']
-        dt = format_time(item['created'])
-        length = item['length']
-        danmu = item['video_review']
-        url = 'https://www.bilibili.com/video/' + item['bvid']
-        tag_url = 'https://api.bilibili.com/x/web-interface/view/detail/tag?aid=' + item['aid']
-        tags = get_tags(get_request_data(tag_url))
+        single_video['up_name'] = item['author']
+        single_video['mid'] = item['mid']
+        single_video['title'] = item['title']
+        single_video['bfl'] = item['play']
+        single_video['plsl'] = item['comment']
+        single_video['dt'] = format_time(item['created'])
+        single_video['length'] = item['length']
+        single_video['dmsl'] = item['video_review']
+        single_video['url'] = 'https://www.bilibili.com/video/' + item['bvid']
+        # 获取tag数据
+        single_video['tags'] = get_tags(tag_url + str(item['aid']))
+        # 获取视频评论
+        single_video['comments'] = get_comments(comment_url + str(item['aid']))
+        save_data(build_sql('video', single_video))
+        print('视频数据写入成功')
 
-        title_list.append(title)
-        play_count_list.append(play_count)
-        comment_count_list.append(comment_count)
-        dt_list.append(dt)
-        length_list.append(length)
-        danmu_list.append(danmu)
-        url_list.append(url)
-        tag_list.append(tags)
-    data = dict()
-    data['视频标题'] = title_list
-    data['播放量'] = play_count_list
-    data['评论数量'] = comment_count_list
-    data['发布时间'] = dt_list
-    data['视频长度'] = length_list
-    data['弹幕数量'] = danmu_list
-    data['视频地址'] = url_list
-    data['标签'] = tag_list
-    write_csv_with_header(data, 'data.csv')
+
+def get_comments(com: str):
+    ds = normalize_content(get_request_data(com))
+    comments = jsonpath.jsonpath(ds, '$.data.hots[0,1,2,].content.message')
+    if comments:
+        return '|'.join(comments)
+    return ''
 
 
 def get_tags(tag: str):
     ds = normalize_content(get_request_data(tag))
-    return str(jsonpath.jsonpath(ds, '$.data[*].tag_name'))
+    tags = jsonpath.jsonpath(ds, '$.data[*].tag_name')
+    if tags:
+        return '|'.join(tags)
+    return ''
 
 
-def parse_play_info(bofang: str):
-    """
-    获取播放量等信息
-    """
-    d = normalize_content(get_request_data(bofang))
-    r = dict()
-    r['video_view'] = jsonpath.jsonpath(d, '$.data.archive.view')[0]
-    r['article_view'] = jsonpath.jsonpath(d, '$.data.article.view')[0]
-    r['likes'] = jsonpath.jsonpath(d, '$.data.likes')[0]
-    return r
-
-
-def parse_fans_info(fensi: str):
-    """
-    获取粉丝信息
-    """
-    d = normalize_content(get_request_data(fensi))
-    r = dict()
-    r['fans'] = jsonpath.jsonpath(d, '$.data.follower')[0]
-    return r
-
-
-def parse_main_info(zhuye: str):
+def parse_main_info(mid: str):
     """
     处理个人相关的数据
     """
+    zhuye = zhuye_url + mid
     json_data = normalize_content(get_request_data(zhuye))
-    mid = jsonpath.jsonpath(json_data, '$.data.mid')
-    name = jsonpath.jsonpath(json_data, '$.data.name')
-    live_room_url = jsonpath.jsonpath(json_data, '$.data.live_room.url')
-
+    name = jsonpath.jsonpath(json_data, '$.data.name')[0]
+    live_room_url = jsonpath.jsonpath(json_data, '$.data.live_room.url')[0]
     info = dict()
-    info['url'] = 'https://space.bilibili.com/' + str(mid[0])
-    info['id'] = mid
+    info['url'] = 'https://space.bilibili.com/' + mid
+    info['mid'] = mid
     info['name'] = name
-    info['live_room_url'] = live_room_url
+    info['live_url'] = live_room_url
+    """
+    获取播放量等信息
+    """
+    d = normalize_content(get_request_data(bofang_url + mid))
+    info['bfl'] = jsonpath.jsonpath(d, '$.data.archive.view')[0]
+    info['ydl'] = jsonpath.jsonpath(d, '$.data.article.view')[0]
+    info['dzl'] = jsonpath.jsonpath(d, '$.data.likes')[0]
+    # 粉丝
+    """
+    获取粉丝信息
+    """
+    d = normalize_content(get_request_data(fensi_url + mid))
+    info['fssl'] = jsonpath.jsonpath(d, '$.data.follower')[0]
     return info
 
 
@@ -157,19 +177,80 @@ def normalize_content(content: str):
     return json.loads(content.replace('\n', ';'))
 
 
-def write_csv_without_header(data: dict, file_name):
+def write_csv(data: dict, file_name):
     df = pd.DataFrame(data)
-    df.to_csv(file_name, mode='a', header=False)
+    if os.path.exists(file_name):
+        df.to_csv(file_name, mode='a', header=False)
+    else:
+        df.to_csv(file_name, mode='a', header=True)
 
 
-def write_csv_with_header(data, file_name):
-    df = pd.DataFrame(data)
-    df.to_csv(file_name, mode='a', header=True)
+def imported(mid: int):
+    up_sql = 'select count(1) as cnt from up_info where mid={mid}'.format(mid=mid)
+    video_sql = 'select count(1) as cnt from up_info where mid={mid}'.format(mid=mid)
+    cursor.execute(up_sql)
+    up_cnt = cursor.fetchone()['cnt']
+    cursor.execute(video_sql)
+    video_cnt = cursor.fetchone()['cnt']
+    print('当前mid为{mid}，up信息数量：{up}，视频数量：{video}'.format(mid=mid, up=up_cnt, video=video_cnt))
+    return up_cnt >= 1 and video_cnt >= 1
 
 
-def parse():
-    mid = 314076440
-    video_url = video_list_url + str(mid)
-    get_request_data(video_url)
+def get_by_mid():
+    info = {
+        # 'CodeSheep': 384068749,
+        # '鱼C-小甲鱼': 314076440,
+        # 'Python_子木': 612593877,
+        # '程序员职场大萌哥': 279169631,
+        # '三太子敖丙': 130763764,
+        # '技术胖': 165659472,
+        # '测码学院自动化测试': 480250259,
+        # '小码哥520it': 44188046,
+        # '测码软件测试官方': 474692845,
+        # '源码时代IT培训': 448185354,
+        # '软件测试码尚学院官方': 521798214,
+        # '学码匠': 392822957,
+        # '尚硅谷': 302417610,
+        # '动力节点': 76542346,
+        # '传智博学谷': 441640380,
+        # '楠哥教你学Java': 434617924,
+        # '达内官方账号': 472008134,
+        # '心静思远-9527': 394607967,
+        # '我是程序汪': 83853950,
+        # '架构风清扬': 326158542,
+        # '千锋教育Java学院': 416186032,
+        # '黑马程序员': 37974444,
+        # '麦叔编程': 442752399,
+        '遇见狂神说': 95256449,
+    }
+    for (name, mid) in info.items():
+        # 获取个人信息
+        print('current-user', name)
+        # 判断是否已经处理了
+        if not imported(mid):
+            main_dic = parse_main_info(str(mid))
+            parse_video_data(str(mid), main_dic)
+
+
+def get_by_type_desc(code: str, max_page: int):
+    # 根据关键字搜索视频->获取相关的up主
+    search_url = 'https://api.bilibili.com/x/web-interface/search/type?context=&page={page}&order=&keyword={keyword}&duration=&tids_1=&tids_2=&__refresh__=true&_extra=&search_type=video'
+    # 分页查
+    for i in range(1, max_page+1):
+        ds = get_request_data(search_url.format(page=i, keyword=code))
+        js = normalize_content(ds)
+        # 每页的数据
+        for mid in jsonpath.jsonpath(js, '$.data.result[*].mid'):
+            if not imported(mid):
+                main_dic = parse_main_info(str(mid))
+                parse_video_data(str(mid), main_dic)
 
 login()
+get_by_type_desc('JAVA', 1)
+#
+# search_url = 'https://api.bilibili.com/x/web-interface/search/type?context=&page={page}&order=&keyword={keyword}&duration=&tids_1=&tids_2=&__refresh__=true&_extra=&search_type=video'
+#
+# ds = get_request_data(search_url.format(page=1, keyword='java'))
+# js = normalize_content(ds)
+# for i in jsonpath.jsonpath(js, '$.data.result[*].mid'):
+#     print(i)
