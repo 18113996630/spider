@@ -3,6 +3,7 @@ import json
 import os
 import time
 import random
+from urllib import parse
 
 import pandas as pd
 
@@ -196,32 +197,32 @@ def imported(mid: int):
     return up_cnt >= 1 and video_cnt >= 1
 
 
-def get_by_mid():
+def get_by_point_data():
     info = {
-        # 'CodeSheep': 384068749,
-        # '鱼C-小甲鱼': 314076440,
-        # 'Python_子木': 612593877,
-        # '程序员职场大萌哥': 279169631,
-        # '三太子敖丙': 130763764,
-        # '技术胖': 165659472,
-        # '测码学院自动化测试': 480250259,
-        # '小码哥520it': 44188046,
-        # '测码软件测试官方': 474692845,
-        # '源码时代IT培训': 448185354,
-        # '软件测试码尚学院官方': 521798214,
-        # '学码匠': 392822957,
-        # '尚硅谷': 302417610,
-        # '动力节点': 76542346,
-        # '传智博学谷': 441640380,
-        # '楠哥教你学Java': 434617924,
-        # '达内官方账号': 472008134,
-        # '心静思远-9527': 394607967,
-        # '我是程序汪': 83853950,
-        # '架构风清扬': 326158542,
-        # '千锋教育Java学院': 416186032,
-        # '黑马程序员': 37974444,
-        # '麦叔编程': 442752399,
-        '遇见狂神说': 95256449,
+        'CodeSheep': 384068749,
+        '鱼C-小甲鱼': 314076440,
+        'Python_子木': 612593877,
+        '程序员职场大萌哥': 279169631,
+        '三太子敖丙': 130763764,
+        '技术胖': 165659472,
+        '测码学院自动化测试': 480250259,
+        '小码哥520it': 44188046,
+        '测码软件测试官方': 474692845,
+        '源码时代IT培训': 448185354,
+        '软件测试码尚学院官方': 521798214,
+        '学码匠': 392822957,
+        '尚硅谷': 302417610,
+        '动力节点': 76542346,
+        '传智博学谷': 441640380,
+        '楠哥教你学Java': 434617924,
+        '达内官方账号': 472008134,
+        '心静思远-9527': 394607967,
+        '我是程序汪': 83853950,
+        '架构风清扬': 326158542,
+        '千锋教育Java学院': 416186032,
+        '黑马程序员': 37974444,
+        '麦叔编程': 442752399,
+        '遇见狂神说': 95256449
     }
     for (name, mid) in info.items():
         # 获取个人信息
@@ -232,12 +233,12 @@ def get_by_mid():
             parse_video_data(str(mid), main_dic)
 
 
-def get_by_type_desc(code: str, max_page: int):
+def get_by_keyword_search(code: str, max_page: int):
     # 根据关键字搜索视频->获取相关的up主
     search_url = 'https://api.bilibili.com/x/web-interface/search/type?context=&page={page}&order=&keyword={keyword}&duration=&tids_1=&tids_2=&__refresh__=true&_extra=&search_type=video'
     # 分页查
-    for i in range(1, max_page+1):
-        ds = get_request_data(search_url.format(page=i, keyword=code))
+    for i in range(1, max_page + 1):
+        ds = get_request_data(search_url.format(page=i, keyword=parse.quote(code)))
         js = normalize_content(ds)
         # 每页的数据
         for mid in jsonpath.jsonpath(js, '$.data.result[*].mid'):
@@ -245,12 +246,7 @@ def get_by_type_desc(code: str, max_page: int):
                 main_dic = parse_main_info(str(mid))
                 parse_video_data(str(mid), main_dic)
 
+
 login()
-get_by_type_desc('JAVA', 1)
-#
-# search_url = 'https://api.bilibili.com/x/web-interface/search/type?context=&page={page}&order=&keyword={keyword}&duration=&tids_1=&tids_2=&__refresh__=true&_extra=&search_type=video'
-#
-# ds = get_request_data(search_url.format(page=1, keyword='java'))
-# js = normalize_content(ds)
-# for i in jsonpath.jsonpath(js, '$.data.result[*].mid'):
-#     print(i)
+# get_by_point_data()
+get_by_keyword_search('', 1)
