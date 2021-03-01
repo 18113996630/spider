@@ -24,17 +24,21 @@ bofang_url = 'https://api.bilibili.com/x/space/upstat?jsonp=jsonp&mid='
 video_list_url = 'https://api.bilibili.com/x/space/arc/search?ps=30&tid=0&pn=1&keyword=&order=stow&jsonp=jsonp&mid='
 tag_url = 'https://api.bilibili.com/x/web-interface/view/detail/tag?aid='
 comment_url = 'https://api.bilibili.com/x/v2/reply?jsonp=jsonp&pn=1&type=1&oid='
+search_url = 'https://api.bilibili.com/x/web-interface/search/type?context=&page={page}&order=&keyword={keyword}&duration=&tids_1=&tids_2=&__refresh__=true&_extra=&search_type=video'
 
 connection = pymysql.connect(host='127.0.0.1', port=3306, user='root', password='123456', db='bilibili',
                              charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor)
 cursor = connection.cursor()
 
 
-def build_sql(table_name: str, item: dict):
+def build_sql(table_name: str, item: dict, duplicate_fields: list):
     ls = [(k, v) for k, v in item.items() if v is not None]
     sql = 'INSERT INTO %s (' % table_name + ','.join([i[0] for i in ls]) + ') VALUES (' + ','.join(
-        repr(i[1]) for i in ls) + ');'
-    return sql
+        repr(i[1]) for i in ls) + ') ON DUPLICATE KEY UPDATE '
+    for f in duplicate_fields:
+        sql += '{f} = values ({f}),'.format(f=f)
+    print(sql)
+    return sql[:-1]
 
 
 def save_data(sql: str):
@@ -100,7 +104,7 @@ def parse_video_data(video_url_inner: str, main_dic: dict):
     # 总视频数量
     total_count = jsonpath.jsonpath(full_data, '$.data.page.count')[0]
     main_dic['spsl'] = total_count
-    up_sql = build_sql('up_info', main_dic)
+    up_sql = build_sql('up_info', main_dic, ['fssl', 'spsl', 'ydl', 'dzl', 'bfl'])
     save_data(up_sql)
 
     # write_csv(main_dic, up_file_name)
@@ -124,7 +128,7 @@ def parse_video_data(video_url_inner: str, main_dic: dict):
         single_video['tags'] = get_tags(tag_url + str(item['aid']))
         # 获取视频评论
         single_video['comments'] = get_comments(comment_url + str(item['aid']))
-        save_data(build_sql('video', single_video))
+        save_data(build_sql('video', single_video, ['bfl', 'plsl', 'dmsl']))
         print('视频数据写入成功')
 
 
@@ -199,54 +203,36 @@ def imported(mid: int):
 
 def get_by_point_data():
     info = {
-        'CodeSheep': 384068749,
-        '鱼C-小甲鱼': 314076440,
-        'Python_子木': 612593877,
-        '程序员职场大萌哥': 279169631,
-        '三太子敖丙': 130763764,
-        '技术胖': 165659472,
-        '测码学院自动化测试': 480250259,
-        '小码哥520it': 44188046,
-        '测码软件测试官方': 474692845,
-        '源码时代IT培训': 448185354,
-        '软件测试码尚学院官方': 521798214,
-        '学码匠': 392822957,
-        '尚硅谷': 302417610,
-        '动力节点': 76542346,
-        '传智博学谷': 441640380,
-        '楠哥教你学Java': 434617924,
-        '达内官方账号': 472008134,
-        '心静思远-9527': 394607967,
-        '我是程序汪': 83853950,
-        '架构风清扬': 326158542,
-        '千锋教育Java学院': 416186032,
-        '黑马程序员': 37974444,
-        '麦叔编程': 442752399,
         '遇见狂神说': 95256449
     }
     for (name, mid) in info.items():
         # 获取个人信息
         print('current-user', name)
-        # 判断是否已经处理了
-        if not imported(mid):
-            main_dic = parse_main_info(str(mid))
-            parse_video_data(str(mid), main_dic)
+        main_dic = parse_main_info(str(mid))
+        parse_video_data(str(mid), main_dic)
 
 
-def get_by_keyword_search(code: str, max_page: int):
-    # 根据关键字搜索视频->获取相关的up主
-    search_url = 'https://api.bilibili.com/x/web-interface/search/type?context=&page={page}&order=&keyword={keyword}&duration=&tids_1=&tids_2=&__refresh__=true&_extra=&search_type=video'
+def get_by_keyword_search(code: str, max_page: int = 1):
+    # 根据关键字搜索视频-
     # 分页查
+    searched_ups = []
     for i in range(1, max_page + 1):
         ds = get_request_data(search_url.format(page=i, keyword=parse.quote(code)))
         js = normalize_content(ds)
         # 每页的数据
         for mid in jsonpath.jsonpath(js, '$.data.result[*].mid'):
-            if not imported(mid):
+            print('current user mid: {mid}'.format(mid=mid))
+            if mid not in searched_ups:
                 main_dic = parse_main_info(str(mid))
                 parse_video_data(str(mid), main_dic)
+                searched_ups.append(mid)
+            else:
+                print('the up has done')
 
 
-login()
-# get_by_point_data()
-get_by_keyword_search('', 1)
+if __name__ == '__main__':
+    login()
+    # get_by_point_data()
+    keyword = 'java'
+    max_page = 2
+    get_by_keyword_search(keyword, max_page=max_page)
