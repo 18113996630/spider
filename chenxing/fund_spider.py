@@ -2,7 +2,6 @@ import requests
 from fake_useragent import UserAgent
 from lxml import etree
 
-
 top_10_url = 'https://www.morningstar.cn/handler/quicktake.ashx?command=portfolio&fcid=0P00016LM0&randomid=0.5709105952899531'
 list_url = 'https://www.morningstar.cn/quickrank/default.aspx'
 
